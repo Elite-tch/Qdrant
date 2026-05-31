@@ -7,9 +7,9 @@ import { resolveIdeaSources } from "@/lib/idea-sources.js";
 export const runtime = "nodejs";
 
 const SearchSchema = z.object({
-  ideaText: z.string().min(50).max(12000),
-  projectUrl: z.string().url().optional().or(z.literal("")),
-  githubUrl: z.string().url().optional().or(z.literal("")),
+  ideaText: z.string().max(12000).default(""),
+  projectUrls: z.array(z.string().url()).max(3).default([]),
+  githubUrls: z.array(z.string().url()).max(3).default([]),
   targetUser: z.string().max(500).optional(),
   problem: z.string().max(1000).optional(),
   solution: z.string().max(1000).optional(),
@@ -49,14 +49,31 @@ export async function POST(request: Request) {
   }
 
   try {
+    const hasProjectUrls = parsed.data.projectUrls.length > 0;
+    const hasGithubUrls = parsed.data.githubUrls.length > 0;
+
+    if (hasProjectUrls && hasGithubUrls) {
+      return Response.json(
+        { error: "Choose either GitHub URLs or live project URLs, not both." },
+        { status: 400 },
+      );
+    }
+
     const ideaText = await resolveIdeaSources(parsed.data);
+    if (ideaText.trim().length < 50) {
+      return Response.json(
+        { error: "Please add at least 50 characters of idea text, or a GitHub/live URL source." },
+        { status: 400 },
+      );
+    }
+
     const qdrant = getQdrantClient();
     const modeWeights =
       parsed.data.mode === "competitors"
-        ? parsed.data.projectUrl || parsed.data.githubUrl
+        ? hasProjectUrls || hasGithubUrls
           ? [0.5, 0.5]
           : [0.7, 0.3]
-        : parsed.data.projectUrl || parsed.data.githubUrl
+        : hasProjectUrls || hasGithubUrls
           ? [0.45, 0.55]
           : [0.6, 0.4];
     const denseQuery = {

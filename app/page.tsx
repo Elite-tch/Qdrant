@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -59,8 +59,9 @@ const modes = [
 export default function Home() {
   const [ideaText, setIdeaText] = useState("");
   const [mode, setMode] = useState<(typeof modes)[number]["value"]>("competitors");
-  const [projectUrl, setProjectUrl] = useState("");
-  const [githubUrl, setGithubUrl] = useState("");
+  const [sourceType, setSourceType] = useState<"github" | "live" | "upload" | "">("");
+  const [githubUrls, setGithubUrls] = useState<string[]>([""]);
+  const [projectUrls, setProjectUrls] = useState<string[]>([""]);
   const [facets, setFacets] = useState<Facets | null>(null);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [error, setError] = useState("");
@@ -76,10 +77,15 @@ export default function Home() {
       .catch(() => setError("Could not load filters from Qdrant."));
   }, []);
 
-  const canSearch = useMemo(() => ideaText.trim().length >= 50 && !isSearching, [
-    ideaText,
-    isSearching,
-  ]);
+  const hasSourceUrl = useMemo(() => {
+    const activeUrls = sourceType === "github" ? githubUrls : sourceType === "live" ? projectUrls : [];
+    return activeUrls.some((value) => value.trim().length > 0);
+  }, [githubUrls, projectUrls, sourceType]);
+
+  const canSearch = useMemo(() => {
+    const hasIdeaText = ideaText.trim().length >= 50;
+    return !isSearching && (hasIdeaText || hasSourceUrl);
+  }, [ideaText, hasSourceUrl, isSearching]);
 
   const landscapePoints = useMemo(() => {
     return results.slice(0, 8).map((result, index) => {
@@ -156,13 +162,13 @@ export default function Home() {
     const response = await fetch("/api/search", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ideaText,
-          projectUrl,
-          githubUrl,
-          mode,
-          limit: 8,
-        }),
+      body: JSON.stringify({
+        ideaText,
+        githubUrls: sourceType === "github" ? githubUrls : [],
+        projectUrls: sourceType === "live" ? projectUrls : [],
+        mode,
+        limit: 8,
+      }),
     });
 
     const data = await response.json();
@@ -180,6 +186,9 @@ export default function Home() {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    setSourceType("upload");
+    setGithubUrls([""]);
+    setProjectUrls([""]);
     setIsExtracting(true);
     setError("");
 
@@ -234,13 +243,97 @@ export default function Home() {
       >
         <aside className="space-y-5 lg:sticky lg:top-6 lg:self-start">
           <div className="space-y-3">
+            <div className="space-y-3 rounded-lg border border-stone-200 bg-stone-50 p-4">
+              <div className="space-y-1">
+                <div className="text-sm font-semibold">Source mode</div>
+                <p className="text-xs leading-5 text-stone-500">
+                  Choose one way to search. The other inputs go quiet so it feels like one clean path at a time.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { value: "", label: "Text / voice" },
+                  { value: "upload", label: "Doc upload" },
+                  { value: "github", label: "GitHub repos" },
+                  { value: "live", label: "Live project URLs" },
+                ].map((option) => (
+                  <button
+                    key={option.value || "text"}
+                    className={`rounded-md border px-3 py-2 text-sm font-medium ${
+                      sourceType === option.value
+                        ? "border-emerald-700 bg-emerald-700 text-white"
+                        : "border-stone-300 bg-white hover:bg-stone-50"
+                    }`}
+                    type="button"
+                    onClick={() => {
+                      setSourceType(option.value as typeof sourceType);
+                      if (option.value === "") {
+                        setGithubUrls([""]);
+                        setProjectUrls([""]);
+                        return;
+                      }
+
+                      setIdeaText("");
+                      if (option.value === "github") {
+                        setProjectUrls([""]);
+                      }
+                      if (option.value === "live") {
+                        setGithubUrls([""]);
+                      }
+                      if (option.value === "upload") {
+                        setGithubUrls([""]);
+                        setProjectUrls([""]);
+                      }
+                    }}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+
+              {sourceType === "upload" ? (
+                <p className="text-xs leading-5 text-stone-500">
+                  Upload one document and keep the other source fields inactive for this search.
+                </p>
+              ) : null}
+
+              {sourceType === "github" ? (
+                <UrlFieldGroup
+                  addLabel="Add repo"
+                  helper="We read the README first. If there is no README, you’ll see “No README found.”"
+                  label="GitHub repo URL"
+                  placeholder="Paste a GitHub repository URL..."
+                  values={githubUrls}
+                  onChange={setGithubUrls}
+                />
+              ) : null}
+
+              {sourceType === "live" ? (
+                <UrlFieldGroup
+                  addLabel="Add link"
+                  helper="We pull the page title, description, and visible text summary."
+                  label="Live project URL"
+                  placeholder="Paste a live demo or product URL..."
+                  values={projectUrls}
+                  onChange={setProjectUrls}
+                />
+              ) : null}
+            </div>
+          </div>
+
+          <div className="space-y-3">
             <label className="text-sm font-semibold" htmlFor="idea">
               Idea document
             </label>
             <div className="relative">
               <textarea
                 id="idea"
-                className="min-h-46 w-full resize-y rounded-md border border-stone-300 bg-white p-3 pr-12 text-sm leading-6 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 no-scrollbar"
+                className={`min-h-46 w-full resize-y rounded-md border p-3 pr-12 text-sm leading-6 outline-none no-scrollbar ${
+                  sourceType === ""
+                    ? "border-stone-300 bg-white focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+                    : "border-stone-200 bg-stone-100 text-stone-400"
+                }`}
                 style={{
                   scrollbarWidth: "none",
                   msOverflowStyle: "none",
@@ -248,18 +341,30 @@ export default function Home() {
                 value={ideaText}
                 onChange={(event) => setIdeaText(event.target.value)}
                 placeholder="Paste a PRD, pitch, README, product spec, or customer problem note..."
+                disabled={sourceType !== ""}
               />
               <button
-                className="absolute right-3 top-3 inline-flex size-8 items-center justify-center rounded-full border border-stone-300 bg-white text-stone-600 shadow-sm hover:bg-stone-50"
+                className={`absolute right-3 top-3 inline-flex size-8 items-center justify-center rounded-full border shadow-sm ${
+                  sourceType === ""
+                    ? "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
+                    : "border-stone-200 bg-stone-100 text-stone-400"
+                }`}
                 type="button"
                 onClick={() => toggleVoiceRecording()}
                 aria-label={isListening ? "Stop voice input" : "Start voice input"}
+                disabled={sourceType !== ""}
               >
                 {isListening ? <MicOff size={16} /> : <Mic size={16} />}
               </button>
             </div>
             <div className="flex items-center justify-between gap-3">
-              <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-stone-300 bg-white px-3 py-2 text-sm font-medium hover:bg-stone-50">
+              <label
+                className={`inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium ${
+                  sourceType === "upload"
+                    ? "cursor-pointer border-stone-300 bg-white hover:bg-stone-50"
+                    : "cursor-not-allowed border-stone-200 bg-stone-100 text-stone-400"
+                }`}
+              >
                 <FileText size={16} />
                 {isExtracting ? "Extracting..." : "Upload file"}
                 <input
@@ -267,7 +372,7 @@ export default function Home() {
                   type="file"
                   accept=".docx,.txt,.md,.markdown,.json,.csv,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown,application/json,text/csv"
                   onChange={handleFile}
-                  disabled={isExtracting}
+                  disabled={isExtracting || sourceType !== "upload"}
                 />
               </label>
               <span className="text-xs text-stone-500">{ideaText.length}/12000</span>
@@ -275,38 +380,6 @@ export default function Home() {
             <p className="text-xs leading-5 text-stone-500">
               Supported files: DOCX, TXT, MD, Markdown, JSON, CSV.
             </p>
-            <div className="space-y-2">
-              <label className="text-sm font-semibold" htmlFor="githubUrl">
-                GitHub repo URL
-              </label>
-              <input
-                id="githubUrl"
-                className="w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
-                type="url"
-                value={githubUrl}
-                onChange={(event) => setGithubUrl(event.target.value)}
-                placeholder="Paste a GitHub repository URL..."
-              />
-              <p className="text-xs leading-5 text-stone-500">
-                We read the README first. If there is no README, you’ll see “No README found.”
-              </p>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-semibold" htmlFor="projectUrl">
-                Live project URL
-              </label>
-              <input
-                id="projectUrl"
-                className="w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
-                type="url"
-                value={projectUrl}
-                onChange={(event) => setProjectUrl(event.target.value)}
-                placeholder="Paste a live demo or product URL..."
-              />
-              <p className="text-xs leading-5 text-stone-500">
-                We pull the page title, description, and visible text summary.
-              </p>
-            </div>
           </div>
 
           <div className="space-y-3">
@@ -540,6 +613,61 @@ function InsightList({ title, items }: { title: string; items: string[] }) {
           <li key={item}>{item}</li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+function UrlFieldGroup({
+  addLabel,
+  helper,
+  label,
+  placeholder,
+  values,
+  onChange,
+}: {
+  addLabel: string;
+  helper: string;
+  label: string;
+  placeholder: string;
+  values: string[];
+  onChange: (values: string[]) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      {values.map((value, index) => (
+        <div className="space-y-2" key={`${label}-${index}`}>
+          <label className="text-sm font-semibold">{label}</label>
+          <div className="flex gap-2">
+            <input
+              className="min-w-0 flex-1 rounded-md border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+              type="url"
+              value={value}
+              onChange={(event) =>
+                onChange(values.map((current, currentIndex) => (currentIndex === index ? event.target.value : current)))
+              }
+              placeholder={placeholder}
+            />
+            {index === values.length - 1 && values.length < 3 ? (
+              <button
+                className="inline-flex shrink-0 items-center justify-center rounded-md border border-stone-300 px-3 py-2 text-sm font-medium hover:bg-stone-50"
+                type="button"
+                onClick={() => onChange([...values, ""])}
+                aria-label={`Add another ${label.toLowerCase()}`}
+              >
+                +
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ))}
+      <p className="text-xs leading-5 text-stone-500">{helper}</p>
+      {values.length >= 3 ? (
+        <p className="text-xs leading-5 text-stone-400">Maximum of 3 links for this source type.</p>
+      ) : null}
+      {values.some((value) => value.trim()) ? null : (
+        <p className="text-xs leading-5 text-stone-400">Start with the first link, then use + if you want another one.</p>
+      )}
+      <p className="text-xs font-medium text-emerald-700">{addLabel}</p>
     </div>
   );
 }
