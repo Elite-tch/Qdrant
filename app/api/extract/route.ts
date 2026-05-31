@@ -1,7 +1,15 @@
 import mammoth from "mammoth";
+import { pathToFileURL } from "node:url";
+import { join } from "node:path";
 import { PDFParse } from "pdf-parse";
 
 export const runtime = "nodejs";
+
+PDFParse.setWorker(
+  pathToFileURL(
+    join(process.cwd(), "node_modules", "pdf-parse", "dist", "pdf-parse", "web", "pdf.worker.mjs"),
+  ).href,
+);
 
 const SUPPORTED_TYPES = new Map([
   ["application/pdf", "pdf"],
@@ -31,11 +39,11 @@ export async function POST(request: Request) {
 
     const extension = extensionFor(file);
     const fileType = SUPPORTED_TYPES.get(file.type);
-    const bytes = Buffer.from(await file.arrayBuffer());
+    const bytes = new Uint8Array(await file.arrayBuffer());
     let text = "";
 
     if (fileType === "pdf" || extension === "pdf") {
-      const parser = new PDFParse({ data: bytes });
+      const parser = new PDFParse({ data: Buffer.from(bytes) });
       try {
         const result = await parser.getText();
         text = result.text;
@@ -43,10 +51,10 @@ export async function POST(request: Request) {
         await parser.destroy();
       }
     } else if (fileType === "docx" || extension === "docx") {
-      const result = await mammoth.extractRawText({ buffer: bytes });
+      const result = await mammoth.extractRawText({ buffer: Buffer.from(bytes) });
       text = result.value;
     } else if (fileType === "text" || isTextExtension(extension)) {
-      text = bytes.toString("utf8");
+      text = Buffer.from(bytes).toString("utf8");
     } else {
       return Response.json(
         { error: "Unsupported file type. Upload PDF, DOCX, TXT, MD, JSON, or CSV." },

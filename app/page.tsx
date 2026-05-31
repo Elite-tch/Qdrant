@@ -52,18 +52,11 @@ const exampleIdea = `A workspace for small B2B SaaS teams that turns customer ca
 const modes = [
   { value: "competitors", label: "Competitors" },
   { value: "alternatives", label: "Alternatives" },
-  { value: "adjacent", label: "Adjacent" },
 ] as const;
 
 export default function Home() {
   const [ideaText, setIdeaText] = useState("");
-  const [targetUser, setTargetUser] = useState("");
-  const [problem, setProblem] = useState("");
-  const [solution, setSolution] = useState("");
   const [mode, setMode] = useState<(typeof modes)[number]["value"]>("competitors");
-  const [industry, setIndustry] = useState("All");
-  const [status, setStatus] = useState("All");
-  const [stage, setStage] = useState("All");
   const [facets, setFacets] = useState<Facets | null>(null);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [error, setError] = useState("");
@@ -93,13 +86,7 @@ export default function Home() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ideaText,
-        targetUser,
-        problem,
-        solution,
         mode,
-        industry,
-        status,
-        stage,
         limit: 8,
       }),
     });
@@ -152,7 +139,7 @@ export default function Home() {
             <div>
               <h1 className="text-xl font-semibold tracking-normal">IdeaRadar</h1>
               <p className="text-sm text-stone-500">
-                {facets ? `${facets.totalCompanies.toLocaleString()} YC companies indexed` : "YC corpus loading"}
+                {facets ? `${facets.totalCompanies.toLocaleString()} startups indexed` : "Corpus loading"}
               </p>
             </div>
           </div>
@@ -178,7 +165,7 @@ export default function Home() {
             </label>
             <textarea
               id="idea"
-              className="min-h-64 w-full resize-y rounded-md border border-stone-300 bg-white p-3 text-sm leading-6 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+              className="min-h-46 w-full resize-y rounded-md border border-stone-300 bg-white p-3 text-sm leading-6 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
               value={ideaText}
               onChange={(event) => setIdeaText(event.target.value)}
               placeholder="Paste a PRD, pitch, README, product spec, or customer problem note..."
@@ -202,27 +189,6 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="grid gap-3">
-            <input
-              className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
-              value={targetUser}
-              onChange={(event) => setTargetUser(event.target.value)}
-              placeholder="Target user"
-            />
-            <input
-              className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
-              value={problem}
-              onChange={(event) => setProblem(event.target.value)}
-              placeholder="Problem"
-            />
-            <input
-              className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
-              value={solution}
-              onChange={(event) => setSolution(event.target.value)}
-              placeholder="Solution"
-            />
-          </div>
-
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm font-semibold">
               <SlidersHorizontal size={16} />
@@ -232,46 +198,16 @@ export default function Home() {
               {modes.map((item) => (
                 <button
                   key={item.value}
-                  className={`rounded-md border px-3 py-2 text-sm font-medium ${
-                    mode === item.value
+                  className={`rounded-md border px-3 py-2 text-sm font-medium ${mode === item.value
                       ? "border-emerald-700 bg-emerald-700 text-white"
                       : "border-stone-300 bg-white hover:bg-stone-50"
-                  }`}
+                    }`}
                   type="button"
                   onClick={() => setMode(item.value)}
                 >
                   {item.label}
                 </button>
               ))}
-            </div>
-            <select
-              className="w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm"
-              value={industry}
-              onChange={(event) => setIndustry(event.target.value)}
-            >
-              {(facets?.industries ?? ["All"]).map((item) => (
-                <option key={item}>{item}</option>
-              ))}
-            </select>
-            <div className="grid grid-cols-2 gap-2">
-              <select
-                className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm"
-                value={status}
-                onChange={(event) => setStatus(event.target.value)}
-              >
-                {(facets?.statuses ?? ["All"]).map((item) => (
-                  <option key={item}>{item}</option>
-                ))}
-              </select>
-              <select
-                className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm"
-                value={stage}
-                onChange={(event) => setStage(event.target.value)}
-              >
-                {(facets?.stages ?? ["All"]).map((item) => (
-                  <option key={item}>{item}</option>
-                ))}
-              </select>
             </div>
           </div>
 
@@ -293,7 +229,7 @@ export default function Home() {
                 <Radar className="mx-auto text-emerald-700" size={34} />
                 <h2 className="text-2xl font-semibold">Competitive landscape</h2>
                 <p className="text-sm leading-6 text-stone-600">
-                  Paste an idea or load the example to search real YC companies through Qdrant.
+                  Paste an idea or load the example to search startups through Qdrant.
                 </p>
               </div>
             </div>
