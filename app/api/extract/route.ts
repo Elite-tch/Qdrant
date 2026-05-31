@@ -1,11 +1,8 @@
 import mammoth from "mammoth";
-import { join } from "node:path";
-import { pathToFileURL } from "node:url";
 
 export const runtime = "nodejs";
 
 const SUPPORTED_TYPES = new Map([
-  ["application/pdf", "pdf"],
   ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", "docx"],
   ["text/plain", "text"],
   ["text/markdown", "text"],
@@ -35,54 +32,14 @@ export async function POST(request: Request) {
     const bytes = new Uint8Array(await file.arrayBuffer());
     let text = "";
 
-    if (fileType === "pdf" || extension === "pdf") {
-      const { DOMMatrix } = await import(
-        pathToFileURL(
-          join(
-            process.cwd(),
-            "node_modules",
-            "pdf-parse",
-            "node_modules",
-            "@napi-rs",
-            "canvas",
-            "index.js",
-          ),
-        ).href
-      );
-
-      if (typeof globalThis.DOMMatrix === "undefined") {
-        globalThis.DOMMatrix = DOMMatrix;
-      }
-
-      const { PDFParse } = await import(
-        pathToFileURL(
-          join(
-            process.cwd(),
-            "node_modules",
-            "pdf-parse",
-            "dist",
-            "pdf-parse",
-            "esm",
-            "PDFParse.js",
-          ),
-        ).href
-      );
-
-      const parser = new PDFParse({ data: Buffer.from(bytes) });
-      try {
-        const result = await parser.getText();
-        text = result.text;
-      } finally {
-        await parser.destroy();
-      }
-    } else if (fileType === "docx" || extension === "docx") {
+    if (fileType === "docx" || extension === "docx") {
       const result = await mammoth.extractRawText({ buffer: Buffer.from(bytes) });
       text = result.value;
     } else if (fileType === "text" || isTextExtension(extension)) {
       text = Buffer.from(bytes).toString("utf8");
     } else {
       return Response.json(
-        { error: "Unsupported file type. Upload PDF, DOCX, TXT, MD, JSON, or CSV." },
+        { error: "Unsupported file type. Upload DOCX, TXT, MD, JSON, or CSV." },
         { status: 400 },
       );
     }

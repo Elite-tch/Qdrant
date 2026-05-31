@@ -58,7 +58,9 @@ function buildDifferent(payload: CompanyPayload, overlap: string[]) {
     payload.subindustry && payload.subindustry !== payload.industry
       ? `Narrower focus: ${payload.subindustry}`
       : null,
-    overlap.length < 3 ? "Your idea appears broader or less direct" : "Your idea is close in language and positioning",
+    overlap.length < 3
+      ? "Your idea appears broader or less direct"
+      : "Your idea is close in language and positioning",
   ].filter((item): item is string => Boolean(item));
 
   return items.slice(0, 3);
@@ -77,11 +79,59 @@ function buildDifferentiation(payload: CompanyPayload, overlap: string[], verdic
 }
 
 function tokenize(value: string) {
+  const stopwords = new Set([
+    "about",
+    "after",
+    "also",
+    "and",
+    "another",
+    "around",
+    "backed",
+    "best",
+    "both",
+    "build",
+    "building",
+    "business",
+    "customer",
+    "customers",
+    "direct",
+    "from",
+    "have",
+    "help",
+    "idea",
+    "into",
+    "make",
+    "more",
+    "note",
+    "other",
+    "over",
+    "product",
+    "products",
+    "service",
+    "services",
+    "small",
+    "solution",
+    "solutions",
+    "startup",
+    "startups",
+    "support",
+    "team",
+    "teams",
+    "that",
+    "their",
+    "this",
+    "through",
+    "with",
+    "work",
+    "workspace",
+    "your",
+  ]);
+
   return value
     .toLowerCase()
     .split(/[^a-z0-9]+/g)
     .map((token) => token.trim())
-    .filter((token) => token.length > 2);
+    .filter((token) => token.length > 2 && !stopwords.has(token));
 }
 
 function intersection(first: string[], second: string[]) {

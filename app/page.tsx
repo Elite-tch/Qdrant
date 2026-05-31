@@ -181,7 +181,7 @@ export default function Home() {
                 <input
                   className="hidden"
                   type="file"
-                  accept=".pdf,.docx,.txt,.md,.markdown,.json,.csv,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown,application/json,text/csv"
+                  accept=".docx,.txt,.md,.markdown,.json,.csv,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown,application/json,text/csv"
                   onChange={handleFile}
                   disabled={isExtracting}
                 />
@@ -189,7 +189,7 @@ export default function Home() {
               <span className="text-xs text-stone-500">{ideaText.length}/12000</span>
             </div>
             <p className="text-xs leading-5 text-stone-500">
-              Supported files: PDF, DOCX, TXT, MD, Markdown, JSON, CSV.
+              Supported files: DOCX, TXT, MD, Markdown, JSON, CSV.
             </p>
           </div>
 
@@ -198,7 +198,7 @@ export default function Home() {
               <SlidersHorizontal size={16} />
               Search controls
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {modes.map((item) => (
                 <button
                   key={item.value}
@@ -233,7 +233,7 @@ export default function Home() {
                 <Radar className="mx-auto text-emerald-700" size={34} />
                 <h2 className="text-2xl font-semibold">Competitive landscape</h2>
                 <p className="text-sm leading-6 text-stone-600">
-                  Paste an idea or load the example to search startups through Qdrant.
+                  Paste an idea or load the example to explore the competitive landscape through Qdrant.
                 </p>
               </div>
             </div>
@@ -311,12 +311,12 @@ export default function Home() {
                     ))}
                   </div>
 
-                  {result.analysis ? (
+                    {result.analysis ? (
                     <div className="mt-5 grid gap-4 border-t border-stone-200 pt-4 md:grid-cols-3">
-                      <InsightList title="In common" items={result.analysis.common} />
-                      <InsightList title="Different" items={result.analysis.different} />
+                      <InsightList title="Why it overlaps" items={result.analysis.common} />
+                      <InsightList title="What differs" items={result.analysis.different} />
                       <div>
-                        <h3 className="text-sm font-semibold">Angle</h3>
+                        <h3 className="text-sm font-semibold">Your wedge</h3>
                         <p className="mt-2 text-sm leading-6 text-stone-600">
                           {result.analysis.differentiation}
                         </p>
