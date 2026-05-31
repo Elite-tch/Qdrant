@@ -1,12 +1,10 @@
 ﻿"use client";
 
-import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import {
   ArrowUpRight,
   FileText,
   LoaderCircle,
-  Mic,
-  MicOff,
   Radar,
   Search,
   SlidersHorizontal,
@@ -67,8 +65,6 @@ export default function Home() {
   const [error, setError] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
 
   useEffect(() => {
     fetch("/api/facets")
@@ -106,52 +102,6 @@ export default function Home() {
       };
     });
   }, [results]);
-
-  function toggleVoiceRecording() {
-    const win = window as Window & {
-      SpeechRecognition?: new () => SpeechRecognitionLike;
-      webkitSpeechRecognition?: new () => SpeechRecognitionLike;
-    };
-
-    const Recognition = win.SpeechRecognition ?? win.webkitSpeechRecognition;
-    if (!Recognition) {
-      alert("Voice input is not supported in this browser.");
-      return;
-    }
-
-    if (!recognitionRef.current) {
-      const recognition = new Recognition();
-      recognition.continuous = false;
-      recognition.interimResults = true;
-      recognition.lang = "en-US";
-      recognition.onresult = (event: unknown) => {
-        const speechEvent = event as {
-          results?: Array<Array<{ transcript: string }>>;
-        };
-        const transcript = speechEvent.results
-          ?.map((result) => result[0]?.transcript ?? "")
-          .join(" ")
-          .trim();
-
-        if (transcript) {
-          setIdeaText((current) => `${current}${current ? "\n" : ""}${transcript}`.trim());
-        }
-      };
-      recognition.onend = () => {
-        setIsListening(false);
-      };
-      recognitionRef.current = recognition;
-    }
-
-    if (isListening) {
-      recognitionRef.current.stop();
-      setIsListening(false);
-      return;
-    }
-
-    setIsListening(true);
-    recognitionRef.current.start();
-  }
 
   async function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -253,18 +203,17 @@ export default function Home() {
 
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { value: "", label: "Text / voice" },
+                  { value: "", label: "Text" },
                   { value: "upload", label: "Doc upload" },
                   { value: "github", label: "GitHub repos" },
                   { value: "live", label: "Live project URLs" },
                 ].map((option) => (
                   <button
                     key={option.value || "text"}
-                    className={`rounded-md border px-3 py-2 text-sm font-medium ${
-                      sourceType === option.value
+                    className={`rounded-md border px-3 py-2 text-sm font-medium ${sourceType === option.value
                         ? "border-emerald-700 bg-emerald-700 text-white"
                         : "border-stone-300 bg-white hover:bg-stone-50"
-                    }`}
+                      }`}
                     type="button"
                     onClick={() => {
                       setSourceType(option.value as typeof sourceType);
@@ -291,12 +240,6 @@ export default function Home() {
                   </button>
                 ))}
               </div>
-
-              {sourceType === "upload" ? (
-                <p className="text-xs leading-5 text-stone-500">
-                  Upload one document and keep the other source fields inactive for this search.
-                </p>
-              ) : null}
 
               {sourceType === "github" ? (
                 <UrlFieldGroup
@@ -329,11 +272,10 @@ export default function Home() {
             <div className="relative">
               <textarea
                 id="idea"
-                className={`min-h-46 w-full resize-y rounded-md border p-3 pr-12 text-sm leading-6 outline-none no-scrollbar ${
-                  sourceType === ""
+                className={`min-h-46 w-full resize-y rounded-md border p-3 text-sm leading-6 outline-none no-scrollbar ${sourceType === ""
                     ? "border-stone-300 bg-white focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
                     : "border-stone-200 bg-stone-100 text-stone-400"
-                }`}
+                  }`}
                 style={{
                   scrollbarWidth: "none",
                   msOverflowStyle: "none",
@@ -343,27 +285,13 @@ export default function Home() {
                 placeholder="Paste a PRD, pitch, README, product spec, or customer problem note..."
                 disabled={sourceType !== ""}
               />
-              <button
-                className={`absolute right-3 top-3 inline-flex size-8 items-center justify-center rounded-full border shadow-sm ${
-                  sourceType === ""
-                    ? "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
-                    : "border-stone-200 bg-stone-100 text-stone-400"
-                }`}
-                type="button"
-                onClick={() => toggleVoiceRecording()}
-                aria-label={isListening ? "Stop voice input" : "Start voice input"}
-                disabled={sourceType !== ""}
-              >
-                {isListening ? <MicOff size={16} /> : <Mic size={16} />}
-              </button>
             </div>
             <div className="flex items-center justify-between gap-3">
               <label
-                className={`inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium ${
-                  sourceType === "upload"
+                className={`inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium ${sourceType === "upload"
                     ? "cursor-pointer border-stone-300 bg-white hover:bg-stone-50"
                     : "cursor-not-allowed border-stone-200 bg-stone-100 text-stone-400"
-                }`}
+                  }`}
               >
                 <FileText size={16} />
                 {isExtracting ? "Extracting..." : "Upload file"}
@@ -416,87 +344,6 @@ export default function Home() {
         </aside>
 
         <section className="min-h-[620px]">
-          {results.length > 0 && !isSearching ? (
-            <div className="mb-4 rounded-lg border border-stone-200 bg-white p-5 shadow-sm">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-semibold">Semantic landscape</h2>
-                  <p className="text-sm text-stone-600">
-                    A quick visual map of the strongest matches, arranged by proximity and risk.
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-3 text-xs text-stone-500">
-                  <span>Higher score = closer</span>
-                  <span>•</span>
-                  <span>Bubble size = risk</span>
-                </div>
-              </div>
-
-              <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_220px]">
-                <div className="relative h-[260px] overflow-hidden rounded-2xl border border-stone-200 bg-[radial-gradient(circle_at_20%_20%,rgba(16,185,129,0.09),transparent_34%),radial-gradient(circle_at_80%_30%,rgba(251,191,36,0.08),transparent_30%),linear-gradient(to_bottom,#fff,#faf9f5)]">
-                  <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(120,113,108,0.09)_1px,transparent_1px),linear-gradient(to_bottom,rgba(120,113,108,0.09)_1px,transparent_1px)] bg-[size:22px_22px] opacity-50" />
-                  <div className="absolute left-4 top-3 text-[11px] font-medium uppercase tracking-[0.2em] text-stone-400">
-                    More direct
-                  </div>
-                  <div className="absolute right-4 top-3 text-[11px] font-medium uppercase tracking-[0.2em] text-stone-400">
-                    More adjacent
-                  </div>
-                  <div className="absolute left-4 bottom-3 text-[11px] font-medium uppercase tracking-[0.2em] text-stone-400">
-                    Lower score
-                  </div>
-                  <div className="absolute right-4 bottom-3 text-[11px] font-medium uppercase tracking-[0.2em] text-stone-400">
-                    Higher score
-                  </div>
-
-                  {landscapePoints.map((point) => (
-                    <div
-                      className="absolute"
-                      key={point.id}
-                      style={{
-                        left: `${point.x}%`,
-                        top: `${point.y}%`,
-                        transform: "translate(-50%, -50%)",
-                      }}
-                    >
-                      <div
-                        className={`flex items-center gap-2 rounded-full border border-white/80 px-2 py-1 text-xs font-medium shadow-sm backdrop-blur ${
-                          point.risk === "high"
-                            ? "bg-amber-100 text-amber-900"
-                            : point.risk === "medium"
-                              ? "bg-lime-100 text-lime-900"
-                              : "bg-emerald-100 text-emerald-900"
-                        }`}
-                      >
-                        <span
-                          className={`inline-block rounded-full ${
-                            point.risk === "high"
-                              ? "bg-amber-500"
-                              : point.risk === "medium"
-                                ? "bg-lime-500"
-                                : "bg-emerald-500"
-                          }`}
-                          style={{
-                            width: `${10 + point.score * 12}px`,
-                            height: `${10 + point.score * 12}px`,
-                          }}
-                        />
-                        <span className="max-w-[120px] truncate">{point.name}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="rounded-2xl border border-stone-200 bg-stone-50 p-4">
-                  <h3 className="text-sm font-semibold">Reading the map</h3>
-                  <ul className="mt-3 space-y-3 text-sm leading-6 text-stone-600">
-                    <li>• Bigger bubbles are higher-risk matches.</li>
-                    <li>• The left edge is closer to the core idea; the right edge is more adjacent.</li>
-                    <li>• The map only shows the strongest matches to keep the demo readable.</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          ) : null}
 
           {results.length === 0 && !isSearching ? (
             <div className="flex h-full min-h-[620px] items-center justify-center border border-dashed border-stone-300 bg-white px-6 text-center">
@@ -685,13 +532,3 @@ function hashString(value: string) {
 
   return hash;
 }
-
-type SpeechRecognitionLike = {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  onresult: ((event: unknown) => void) | null;
-  onend: (() => void) | null;
-  start: () => void;
-  stop: () => void;
-};
