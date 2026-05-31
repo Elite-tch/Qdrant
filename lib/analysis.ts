@@ -28,6 +28,7 @@ export function analyzeMatches(args: {
     );
 
     const overlap = intersection(ideaTokens, companyTokens);
+    const overlapLabel = pickOverlapLabel(overlap, match.payload);
     const verdict = overlap.length >= 5 ? "direct competitor" : overlap.length >= 3 ? "adjacent" : "inspiration";
     const risk = verdict === "direct competitor" ? "high" : verdict === "adjacent" ? "medium" : "low";
 
@@ -35,16 +36,16 @@ export function analyzeMatches(args: {
       id: match.id,
       verdict,
       risk,
-      common: buildCommon(match.payload, overlap),
-      different: buildDifferent(match.payload, overlap),
-      differentiation: buildDifferentiation(match.payload, overlap, verdict),
+      common: buildCommon(match.payload, overlapLabel),
+      different: buildDifferent(match.payload, overlapLabel),
+      differentiation: buildDifferentiation(match.payload, verdict),
     };
   });
 }
 
-function buildCommon(payload: CompanyPayload, overlap: string[]) {
+function buildCommon(payload: CompanyPayload, overlapLabel: string) {
   const items = [
-    overlap[0] ? `Shared theme: ${overlap[0]}` : null,
+    overlapLabel ? `Shared theme: ${overlapLabel}` : null,
     payload.industry ? `Same broader category: ${payload.industry}` : null,
     payload.stage !== "Unknown" ? `Comparable stage: ${payload.stage}` : null,
   ].filter((item): item is string => Boolean(item));
@@ -52,23 +53,21 @@ function buildCommon(payload: CompanyPayload, overlap: string[]) {
   return items.slice(0, 3);
 }
 
-function buildDifferent(payload: CompanyPayload, overlap: string[]) {
+function buildDifferent(payload: CompanyPayload, overlapLabel: string) {
   const items = [
-    payload.tags[0] ? `They emphasize ${payload.tags[0]}` : null,
+    payload.tags[0] ? `Their core angle is ${payload.tags[0]}` : null,
     payload.subindustry && payload.subindustry !== payload.industry
       ? `Narrower focus: ${payload.subindustry}`
       : null,
-    overlap.length < 3
-      ? "Your idea appears broader or less direct"
-      : "Your idea is close in language and positioning",
+    overlapLabel ? `Your idea is more about ${overlapLabel}` : null,
   ].filter((item): item is string => Boolean(item));
 
   return items.slice(0, 3);
 }
 
-function buildDifferentiation(payload: CompanyPayload, overlap: string[], verdict: MatchAnalysis["verdict"]) {
+function buildDifferentiation(payload: CompanyPayload, verdict: MatchAnalysis["verdict"]) {
   if (verdict === "direct competitor") {
-    return `You need a sharper wedge than ${payload.name}. Their positioning is already close to your idea.`;
+    return `You need a sharper wedge than ${payload.name}. They already own this lane.`;
   }
 
   if (verdict === "adjacent") {
@@ -76,6 +75,45 @@ function buildDifferentiation(payload: CompanyPayload, overlap: string[], verdic
   }
 
   return `Use ${payload.name} as inspiration, then focus on a more specific problem or customer segment.`;
+}
+
+function pickOverlapLabel(overlap: string[], payload: CompanyPayload) {
+  const candidates = [
+    ...overlap,
+    ...payload.tags,
+    payload.subindustry,
+    payload.industry,
+  ]
+    .map((value) => value.trim().toLowerCase())
+    .filter((value) => value.length > 3);
+
+  if (!candidates.length) {
+    return "";
+  }
+
+  const ranking = [
+    "payment",
+    "payments",
+    "security",
+    "collaboration",
+    "productivity",
+    "workflow",
+    "automation",
+    "platform",
+    "marketplace",
+    "developer",
+    "analytics",
+    "search",
+    "design",
+    "infrastructure",
+  ];
+
+  const ranked = ranking.find((term) => candidates.includes(term));
+  if (ranked) {
+    return ranked;
+  }
+
+  return candidates[0];
 }
 
 function tokenize(value: string) {
