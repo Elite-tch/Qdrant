@@ -158,14 +158,18 @@ export default function Home() {
         className="mx-auto grid max-w-7xl gap-6 px-5 py-6 lg:grid-cols-[430px_1fr]"
         onSubmit={handleSearch}
       >
-        <aside className="space-y-5">
+        <aside className="space-y-5 lg:sticky lg:top-6 lg:self-start">
           <div className="space-y-3">
             <label className="text-sm font-semibold" htmlFor="idea">
               Idea document
             </label>
             <textarea
               id="idea"
-              className="min-h-46 w-full resize-y rounded-md border border-stone-300 bg-white p-3 text-sm leading-6 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+              className="min-h-46 w-full resize-y rounded-md border border-stone-300 bg-white p-3 text-sm leading-6 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 no-scrollbar"
+              style={{
+                scrollbarWidth: "none",
+                msOverflowStyle: "none",
+              }}
               value={ideaText}
               onChange={(event) => setIdeaText(event.target.value)}
               placeholder="Paste a PRD, pitch, README, product spec, or customer problem note..."
