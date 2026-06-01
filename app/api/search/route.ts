@@ -12,7 +12,7 @@ const SearchSchema = z.object({
   targetUser: z.string().max(500).optional(),
   problem: z.string().max(1000).optional(),
   solution: z.string().max(1000).optional(),
-  mode: z.enum(["competitors", "alternatives"]).default("competitors"),
+  mode: z.enum(["validate", "competitors", "alternatives", "inspiration"]).default("competitors"),
   industry: z.string().optional(),
   status: z.string().optional(),
   stage: z.string().optional(),
@@ -50,7 +50,8 @@ export async function POST(request: Request) {
   try {
     const hasProjectUrls = parsed.data.projectUrls.length > 0;
 
-    const ideaText = await resolveIdeaSources(parsed.data);
+    const resolvedSources = await resolveIdeaSources(parsed.data);
+    const ideaText = resolvedSources.text;
     if (ideaText.trim().length < 50) {
       return Response.json(
         { error: "Please add at least 50 characters of idea text, or a live project URL source." },
@@ -59,14 +60,21 @@ export async function POST(request: Request) {
     }
 
     const qdrant = getQdrantClient();
-    const modeWeights =
-      parsed.data.mode === "competitors"
-        ? hasProjectUrls
-          ? [0.5, 0.5]
-          : [0.7, 0.3]
-        : hasProjectUrls
-          ? [0.45, 0.55]
-          : [0.6, 0.4];
+    const modeWeights = (() => {
+      if (parsed.data.mode === "validate") {
+        return hasProjectUrls ? [0.65, 0.35] : [0.78, 0.22];
+      }
+
+      if (parsed.data.mode === "competitors") {
+        return hasProjectUrls ? [0.5, 0.5] : [0.68, 0.32];
+      }
+
+      if (parsed.data.mode === "alternatives") {
+        return hasProjectUrls ? [0.45, 0.55] : [0.58, 0.42];
+      }
+
+      return hasProjectUrls ? [0.4, 0.6] : [0.5, 0.5];
+    })();
     const denseQuery = {
       text: ideaText,
       model: INFERENCE_MODEL,
@@ -122,6 +130,7 @@ export async function POST(request: Request) {
           stage: parsed.data.stage ?? "All",
         },
       },
+      sources: resolvedSources.projectSummaries,
       results: results.points.map((result: { id: string | number; score: number; payload?: unknown }) => ({
         id: Number(result.id),
         score: result.score,

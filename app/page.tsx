@@ -17,6 +17,13 @@ type Facets = {
   totalCompanies: number;
 };
 
+type SourceSummary = {
+  url: string;
+  host: string;
+  quality: "clear" | "thin" | "missing";
+  summary: string;
+};
+
 type Analysis = {
   verdict: "direct competitor" | "adjacent" | "inspiration";
   common: string[];
@@ -50,8 +57,10 @@ type SearchResult = {
 const exampleIdea = `A workspace for small B2B SaaS teams that turns customer calls, support tickets, and product feedback into a living opportunity map. Product managers can see repeated pain points, competitor mentions, deal blockers, and feature requests, then connect them to roadmap bets.`;
 
 const modes = [
+  { value: "validate", label: "Validate idea" },
   { value: "competitors", label: "Competitors" },
   { value: "alternatives", label: "Alternatives" },
+  { value: "inspiration", label: "Inspiration" },
 ] as const;
 
 export default function Home() {
@@ -60,6 +69,7 @@ export default function Home() {
   const [sourceType, setSourceType] = useState<"live" | "upload" | "">("");
   const [projectUrls, setProjectUrls] = useState<string[]>([""]);
   const [facets, setFacets] = useState<Facets | null>(null);
+  const [sourceSummaries, setSourceSummaries] = useState<SourceSummary[]>([]);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [error, setError] = useState("");
   const [isSearching, setIsSearching] = useState(false);
@@ -82,11 +92,73 @@ export default function Home() {
     return !isSearching && (hasIdeaText || hasSourceUrl);
   }, [ideaText, hasSourceUrl, isSearching]);
 
+  const laneCounts = useMemo(() => {
+    const counts = {
+      direct: 0,
+      adjacent: 0,
+      inspiration: 0,
+    };
+
+    for (const result of results) {
+      if (result.analysis?.verdict === "direct competitor") {
+        counts.direct += 1;
+      } else if (result.analysis?.verdict === "adjacent") {
+        counts.adjacent += 1;
+      } else {
+        counts.inspiration += 1;
+      }
+    }
+
+    return counts;
+  }, [results]);
+
+  const saturation = useMemo(() => {
+    if (!results.length) {
+      return { label: "Open", value: 0, tone: "low" as const };
+    }
+
+    const topScores = results.slice(0, 5).map((result) => result.score);
+    const averageScore = topScores.reduce((total, score) => total + score, 0) / topScores.length;
+    const directCount = results.filter((result) => result.analysis?.verdict === "direct competitor").length;
+    const density = Math.min(1, averageScore * 0.7 + (directCount / Math.max(results.length, 1)) * 0.5);
+
+    if (density >= 0.72) {
+      return { label: "Crowded", value: density, tone: "high" as const };
+    }
+
+    if (density >= 0.45) {
+      return { label: "Mixed", value: density, tone: "medium" as const };
+    }
+
+    return { label: "Open", value: density, tone: "low" as const };
+  }, [results]);
+
+  const landscapePoints = useMemo(() => {
+    return results.slice(0, 8).map((result, index) => {
+      const score = clamp(result.score, 0, 1);
+      const directBoost = result.analysis?.verdict === "direct competitor" ? 16 : result.analysis?.verdict === "adjacent" ? 10 : 4;
+      const x = 10 + ((hashString(result.payload.name) % 72) / 72) * 80;
+      const y = 14 + (1 - score) * 56 + directBoost + index * 0.8;
+      return {
+        id: result.id,
+        name: result.payload.name,
+        x,
+        y: clamp(y, 10, 88),
+        score,
+        risk: result.analysis?.risk ?? "low",
+        lane: result.analysis?.verdict ?? "inspiration",
+      };
+    });
+  }, [results]);
+
+  const topComparison = useMemo(() => results.slice(0, 3), [results]);
+
   async function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsSearching(true);
     setError("");
     setResults([]);
+    setSourceSummaries([]);
 
     const response = await fetch("/api/search", {
       method: "POST",
@@ -107,6 +179,7 @@ export default function Home() {
       return;
     }
 
+    setSourceSummaries(data.sources ?? []);
     setResults(data.results ?? []);
   }
 
@@ -199,6 +272,11 @@ export default function Home() {
                       }
 
                       setIdeaText("");
+                      if (option.value === "upload") {
+                        setProjectUrls([""]);
+                        return;
+                      }
+
                       if (option.value === "live") {
                         setProjectUrls([""]);
                       }
@@ -325,6 +403,167 @@ export default function Home() {
 
           {results.length > 0 ? (
             <div className="space-y-4">
+              <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+                <section className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <h3 className="text-sm font-semibold">Semantic landscape</h3>
+                      <p className="text-xs leading-5 text-stone-500">
+                        Bubble positions reflect similarity and risk. Direct matches drift higher and heavier.
+                      </p>
+                    </div>
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-medium ${saturation.tone === "high"
+                          ? "bg-red-50 text-red-700"
+                          : saturation.tone === "medium"
+                            ? "bg-amber-50 text-amber-700"
+                            : "bg-emerald-50 text-emerald-700"
+                        }`}
+                    >
+                      {saturation.label} market
+                    </span>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-3 gap-3">
+                    {[
+                      { label: "Direct", value: laneCounts.direct },
+                      { label: "Adjacent", value: laneCounts.adjacent },
+                      { label: "Inspiration", value: laneCounts.inspiration },
+                    ].map((lane) => (
+                      <div key={lane.label} className="rounded-md border border-stone-200 bg-stone-50 p-3">
+                        <div className="text-xs uppercase tracking-wide text-stone-500">{lane.label}</div>
+                        <div className="mt-1 text-2xl font-semibold">{lane.value}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-4 h-64 rounded-xl border border-stone-200 bg-gradient-to-br from-white to-stone-50 p-3">
+                    <div className="relative h-full w-full overflow-hidden rounded-lg bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.12),_transparent_28%),radial-gradient(circle_at_bottom_right,_rgba(245,158,11,0.10),_transparent_24%)]">
+                      {landscapePoints.map((point) => (
+                        <div
+                          key={point.id}
+                          className={`absolute flex min-h-10 items-center justify-center rounded-full border px-3 py-2 text-xs font-semibold shadow-sm ${point.lane === "direct competitor"
+                              ? "border-red-200 bg-red-50 text-red-700"
+                              : point.lane === "adjacent"
+                                ? "border-amber-200 bg-amber-50 text-amber-700"
+                                : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                            }`}
+                          style={{
+                            left: `${point.x}%`,
+                            top: `${point.y}%`,
+                            transform: "translate(-50%, -50%)",
+                            width: `${Math.max(88, point.score * 115)}px`,
+                            opacity: 0.96,
+                          }}
+                          title={point.name}
+                        >
+                          <span className="truncate">{point.name}</span>
+                        </div>
+                      ))}
+                      <div className="absolute left-3 top-3 rounded-md bg-white/90 px-2 py-1 text-[11px] text-stone-500 shadow-sm">
+                        More direct
+                      </div>
+                      <div className="absolute right-3 top-3 rounded-md bg-white/90 px-2 py-1 text-[11px] text-stone-500 shadow-sm">
+                        More adjacent
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="space-y-4">
+                  <div className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm">
+                    <h3 className="text-sm font-semibold">Market saturation</h3>
+                    <p className="mt-1 text-xs leading-5 text-stone-500">
+                      A quick read on how crowded this space feels from the top matches.
+                    </p>
+                    <div className="mt-4 h-3 overflow-hidden rounded-full bg-stone-100">
+                      <div
+                        className={`h-full rounded-full ${saturation.tone === "high"
+                            ? "bg-red-500"
+                            : saturation.tone === "medium"
+                              ? "bg-amber-500"
+                              : "bg-emerald-500"
+                          }`}
+                        style={{ width: `${Math.max(8, saturation.value * 100)}%` }}
+                      />
+                    </div>
+                    <div className="mt-3 flex items-center justify-between text-sm">
+                      <span className="text-stone-500">Crowding</span>
+                      <span className="font-semibold text-stone-900">{Math.round(saturation.value * 100)}%</span>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm">
+                    <h3 className="text-sm font-semibold">Source quality</h3>
+                    <p className="mt-1 text-xs leading-5 text-stone-500">
+                      Live URLs are scored by how much useful page text we can extract.
+                    </p>
+                    <div className="mt-3 space-y-2">
+                      {sourceSummaries.length > 0 ? (
+                        sourceSummaries.map((source) => (
+                          <div key={source.url} className="rounded-md border border-stone-200 bg-stone-50 p-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="truncate text-sm font-medium">{source.host || source.url}</span>
+                              <span
+                                className={`rounded-full px-2 py-1 text-[11px] font-medium ${source.quality === "clear"
+                                    ? "bg-emerald-50 text-emerald-700"
+                                    : source.quality === "thin"
+                                      ? "bg-amber-50 text-amber-700"
+                                      : "bg-red-50 text-red-700"
+                                  }`}
+                              >
+                                {source.quality}
+                              </span>
+                            </div>
+                            <p className="mt-2 line-clamp-3 text-xs leading-5 text-stone-600">{source.summary}</p>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="rounded-md border border-dashed border-stone-200 p-3 text-xs text-stone-500">
+                          No live project URL source was used in this search.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </section>
+              </div>
+
+              <section className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm">
+                <h3 className="text-sm font-semibold">Competitor comparison</h3>
+                <p className="mt-1 text-xs leading-5 text-stone-500">
+                  The top three matches side by side, so you can quickly see who is closest and where your wedge is.
+                </p>
+                <div className="mt-4 grid gap-3 lg:grid-cols-3">
+                  {topComparison.map((result, index) => (
+                    <div key={result.id} className="rounded-lg border border-stone-200 bg-stone-50 p-4">
+                      <div className="flex items-center gap-2">
+                        <div className="flex size-8 items-center justify-center rounded-full bg-white text-sm font-semibold text-stone-700">
+                          {index + 1}
+                        </div>
+                        <div>
+                          <div className="font-semibold">{result.payload.name}</div>
+                          <div className="text-xs text-stone-500">{(result.score * 100).toFixed(1)}% match</div>
+                        </div>
+                      </div>
+                      <p className="mt-3 text-sm leading-6 text-stone-700">{result.payload.one_liner}</p>
+                      <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-stone-600">
+                        <span className="rounded-full border border-stone-200 bg-white px-2 py-1">
+                          {result.analysis?.verdict ?? "inspiration"}
+                        </span>
+                        <span className="rounded-full border border-stone-200 bg-white px-2 py-1">
+                          {result.analysis?.risk ?? "low"} risk
+                        </span>
+                      </div>
+                      {result.analysis ? (
+                        <p className="mt-3 text-xs leading-5 text-stone-600">
+                          {result.analysis.differentiation}
+                        </p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </section>
+
               {results.map((result, index) => (
                 <article
                   className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm"
@@ -348,6 +587,18 @@ export default function Home() {
                           <span className="rounded-sm bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-800">
                             {(result.score * 100).toFixed(1)}%
                           </span>
+                          {result.analysis ? (
+                            <span
+                              className={`rounded-sm px-2 py-1 text-xs font-medium ${result.analysis.verdict === "direct competitor"
+                                  ? "bg-red-50 text-red-700"
+                                  : result.analysis.verdict === "adjacent"
+                                    ? "bg-amber-50 text-amber-700"
+                                    : "bg-slate-100 text-slate-700"
+                                }`}
+                            >
+                              {result.analysis.verdict}
+                            </span>
+                          ) : null}
                           {result.analysis ? (
                             <span className="rounded-sm bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800">
                               {result.analysis.risk} risk
@@ -412,9 +663,11 @@ function InsightList({ title, items }: { title: string; items: string[] }) {
   return (
     <div>
       <h3 className="text-sm font-semibold">{title}</h3>
-      <ul className="mt-2 space-y-2 text-sm leading-6 text-stone-600">
+      <ul className="mt-2 flex flex-wrap gap-2 text-sm leading-6 text-stone-600">
         {items.map((item) => (
-          <li key={item}>{item}</li>
+          <li key={item} className="rounded-full border border-stone-200 bg-stone-50 px-3 py-1.5 text-xs">
+            {item}
+          </li>
         ))}
       </ul>
     </div>
@@ -474,5 +727,19 @@ function UrlFieldGroup({
       <p className="text-xs font-medium text-emerald-700">{addLabel}</p>
     </div>
   );
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function hashString(value: string) {
+  let hash = 0;
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
+  }
+
+  return hash;
 }
 
