@@ -57,8 +57,7 @@ const modes = [
 export default function Home() {
   const [ideaText, setIdeaText] = useState("");
   const [mode, setMode] = useState<(typeof modes)[number]["value"]>("competitors");
-  const [sourceType, setSourceType] = useState<"github" | "live" | "upload" | "">("");
-  const [githubUrls, setGithubUrls] = useState<string[]>([""]);
+  const [sourceType, setSourceType] = useState<"live" | "upload" | "">("");
   const [projectUrls, setProjectUrls] = useState<string[]>([""]);
   const [facets, setFacets] = useState<Facets | null>(null);
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -74,34 +73,14 @@ export default function Home() {
   }, []);
 
   const hasSourceUrl = useMemo(() => {
-    const activeUrls = sourceType === "github" ? githubUrls : sourceType === "live" ? projectUrls : [];
+    const activeUrls = sourceType === "live" ? projectUrls : [];
     return activeUrls.some((value) => value.trim().length > 0);
-  }, [githubUrls, projectUrls, sourceType]);
+  }, [projectUrls, sourceType]);
 
   const canSearch = useMemo(() => {
     const hasIdeaText = ideaText.trim().length >= 50;
     return !isSearching && (hasIdeaText || hasSourceUrl);
   }, [ideaText, hasSourceUrl, isSearching]);
-
-  const landscapePoints = useMemo(() => {
-    return results.slice(0, 8).map((result, index) => {
-      const score = clamp(result.score, 0, 1);
-      const riskWeight =
-        result.analysis?.risk === "high" ? 0.84 : result.analysis?.risk === "medium" ? 0.5 : 0.22;
-      const x = 10 + ((hashString(result.payload.name) % 72) / 72) * 80;
-      const y = 14 + (1 - score) * 58 + riskWeight * 16 + index * 0.9;
-
-      return {
-        id: result.id,
-        name: result.payload.name,
-        x,
-        y: clamp(y, 10, 88),
-        score,
-        risk: result.analysis?.risk ?? "low",
-        verdict: result.analysis?.verdict ?? "inspiration",
-      };
-    });
-  }, [results]);
 
   async function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -114,7 +93,6 @@ export default function Home() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ideaText,
-        githubUrls: sourceType === "github" ? githubUrls : [],
         projectUrls: sourceType === "live" ? projectUrls : [],
         mode,
         limit: 8,
@@ -137,7 +115,6 @@ export default function Home() {
     if (!file) return;
 
     setSourceType("upload");
-    setGithubUrls([""]);
     setProjectUrls([""]);
     setIsExtracting(true);
     setError("");
@@ -205,7 +182,6 @@ export default function Home() {
                 {[
                   { value: "", label: "Text" },
                   { value: "upload", label: "Doc upload" },
-                  { value: "github", label: "GitHub repos" },
                   { value: "live", label: "Live project URLs" },
                 ].map((option) => (
                   <button
@@ -218,20 +194,12 @@ export default function Home() {
                     onClick={() => {
                       setSourceType(option.value as typeof sourceType);
                       if (option.value === "") {
-                        setGithubUrls([""]);
                         setProjectUrls([""]);
                         return;
                       }
 
                       setIdeaText("");
-                      if (option.value === "github") {
-                        setProjectUrls([""]);
-                      }
                       if (option.value === "live") {
-                        setGithubUrls([""]);
-                      }
-                      if (option.value === "upload") {
-                        setGithubUrls([""]);
                         setProjectUrls([""]);
                       }
                     }}
@@ -240,17 +208,6 @@ export default function Home() {
                   </button>
                 ))}
               </div>
-
-              {sourceType === "github" ? (
-                <UrlFieldGroup
-                  addLabel="Add repo"
-                  helper="We read the README first. If there is no README, you’ll see “No README found.”"
-                  label="GitHub repo URL"
-                  placeholder="Paste a GitHub repository URL..."
-                  values={githubUrls}
-                  onChange={setGithubUrls}
-                />
-              ) : null}
 
               {sourceType === "live" ? (
                 <UrlFieldGroup
@@ -519,16 +476,3 @@ function UrlFieldGroup({
   );
 }
 
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
-}
-
-function hashString(value: string) {
-  let hash = 0;
-
-  for (let index = 0; index < value.length; index += 1) {
-    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
-  }
-
-  return hash;
-}
