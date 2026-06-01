@@ -214,20 +214,20 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-[#f8f7f2] text-stone-950">
       <section className="border-b border-stone-200 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
-          <div className="flex items-center gap-3">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div className="flex min-w-0 items-center gap-3">
             <div className="flex size-10 items-center justify-center rounded-lg bg-emerald-600 text-white">
               <Radar size={21} />
             </div>
             <div>
-              <h1 className="text-xl font-semibold tracking-normal">IdeaRadar</h1>
+              <h1 className="text-lg font-semibold tracking-normal sm:text-xl">IdeaRadar</h1>
               <p className="text-sm text-stone-500">
                 {facets ? `${facets.totalCompanies.toLocaleString()} startups indexed` : "Corpus loading"}
               </p>
             </div>
           </div>
           <button
-            className="inline-flex items-center gap-2 rounded-md border border-stone-300 px-3 py-2 text-sm font-medium hover:bg-stone-50"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-stone-300 px-3 py-2 text-sm font-medium hover:bg-stone-50 sm:w-auto"
             type="button"
             onClick={() => setIdeaText(exampleIdea)}
           >
@@ -238,7 +238,7 @@ export default function Home() {
       </section>
 
       <form
-        className="mx-auto grid max-w-7xl gap-6 px-5 py-6 lg:grid-cols-[430px_1fr]"
+        className="mx-auto grid max-w-7xl gap-5 px-4 py-4 sm:px-5 sm:py-6 lg:grid-cols-[430px_1fr]"
         onSubmit={handleSearch}
       >
         <aside className="space-y-5 lg:sticky lg:top-6 lg:self-start">
@@ -251,7 +251,7 @@ export default function Home() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {[
                   { value: "", label: "Text" },
                   { value: "upload", label: "Doc upload" },
@@ -323,7 +323,7 @@ export default function Home() {
                 disabled={sourceType === "live"}
               />
             </div>
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
               <label
                 className={`inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium ${sourceType === "upload"
                   ? "cursor-pointer border-stone-300 bg-white hover:bg-stone-50"
@@ -352,7 +352,7 @@ export default function Home() {
               <SlidersHorizontal size={16} />
               Search controls
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {modes.map((item) => (
                 <button
                   key={item.value}
@@ -380,13 +380,13 @@ export default function Home() {
           {error ? <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
         </aside>
 
-        <section className="min-h-[620px]">
+        <section className="min-h-[520px] lg:min-h-[620px]">
 
           {results.length === 0 && !isSearching ? (
-            <div className="flex h-full min-h-[620px] items-center justify-center border border-dashed border-stone-300 bg-white px-6 text-center">
+            <div className="flex h-full min-h-[520px] items-center justify-center border border-dashed border-stone-300 bg-white px-5 text-center sm:px-6 lg:min-h-[620px]">
               <div className="max-w-md space-y-3">
                 <Radar className="mx-auto text-emerald-700" size={34} />
-                <h2 className="text-2xl font-semibold">Competitive landscape</h2>
+                <h2 className="text-xl font-semibold sm:text-2xl">Competitive landscape</h2>
                 <p className="text-sm leading-6 text-stone-600">
                   Paste an idea or load the example to explore the competitive landscape through Qdrant.
                 </p>
@@ -395,7 +395,7 @@ export default function Home() {
           ) : null}
 
           {isSearching ? (
-            <div className="flex h-full min-h-[620px] items-center justify-center bg-white">
+            <div className="flex h-full min-h-[520px] items-center justify-center bg-white lg:min-h-[620px]">
               <div className="flex items-center gap-3 text-sm font-medium text-stone-600">
                 <LoaderCircle className="animate-spin text-emerald-700" size={22} />
                 Searching Qdrant and comparing matches
@@ -404,17 +404,17 @@ export default function Home() {
           ) : null}
 
           {results.length > 0 ? (
-            <div className="space-y-4">
+            <div className="space-y-4 overflow-hidden">
 
 
-              <section className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm">
+              <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
                 <h3 className="text-sm font-semibold">Competitor comparison</h3>
                 <p className="mt-1 text-xs leading-5 text-stone-500">
                   The top two matches side by side, so you can quickly see who is closest and where your wedge is.
                 </p>
-                <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
                   {topComparison.map((result, index) => (
-                    <div key={result.id} className="rounded-lg border border-stone-200 bg-stone-50 p-4">
+                    <div key={result.id} className="rounded-lg border border-stone-200 bg-stone-50 p-3 sm:p-4">
                       <div className="flex items-center gap-2">
                         <div className="flex size-8 items-center justify-center rounded-full bg-white text-sm font-semibold text-stone-700">
                           {index + 1}
@@ -445,7 +445,7 @@ export default function Home() {
 
               {results.map((result, index) => (
                 <article
-                  className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm"
+                  className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-5"
                   key={result.id}
                 >
                   <div className="flex flex-wrap items-start justify-between gap-4">
@@ -621,4 +621,3 @@ function hashString(value: string) {
 
   return hash;
 }
-
